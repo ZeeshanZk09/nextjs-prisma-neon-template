@@ -11,7 +11,7 @@ export default async function Home() {
       <header className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <p className='text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500'>
-            Resellify
+            Auth Management
           </p>
           <h1 className='text-3xl font-semibold text-zinc-900 dark:text-zinc-100'>
             Security-first Auth, Billing, and RBAC

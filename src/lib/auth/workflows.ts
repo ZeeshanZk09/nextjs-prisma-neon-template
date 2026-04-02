@@ -97,7 +97,7 @@ async function sendEmailVerificationMessage(email: string, token: string): Promi
   await sendTransactionalEmail({
     to: email,
     subject: 'Verify your email address',
-    text: `Welcome to Resellify. Verify your email using this link: ${verificationUrl}`,
+    text: `Welcome to Auth Mangement Template. Verify your email using this link: ${verificationUrl}`,
   });
 }
 

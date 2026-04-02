@@ -54,7 +54,7 @@ export async function getPwnedPasswordCount(password: string): Promise<number> {
     method: 'GET',
     headers: {
       'Add-Padding': 'true',
-      'User-Agent': 'resellify-security-check',
+      'User-Agent': 'ai-social-media-auto-scheduler-security-check',
     },
     cache: 'no-store',
   });

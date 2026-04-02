@@ -27,7 +27,7 @@ type MailConfig = {
 };
 
 const DEFAULT_SMTP_PORT = 587;
-const DEFAULT_FROM_NAME = 'Resellify';
+const DEFAULT_FROM_NAME = 'Zebotix';
 
 declare global {
   var emailTransporter: Transporter | undefined;

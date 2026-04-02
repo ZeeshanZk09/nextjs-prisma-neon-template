@@ -9,7 +9,7 @@ import {
 import { verifyPassword } from '@/lib/security/password';
 import { mfaEnrollStartSchema } from '@/lib/validations/auth';
 
-const MFA_ISSUER = 'Resellify';
+const MFA_ISSUER = 'Auth Management Template';
 
 export async function POST(request: Request): Promise<Response> {
   const session = await auth();

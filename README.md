@@ -1,4 +1,4 @@
-# Resellify Starter (Security-First Iteration 2)
+# Auth Starter (Security-First Iteration 2)
 
 Next.js + Prisma + Neon starter with a security-first implementation slice of:
 
