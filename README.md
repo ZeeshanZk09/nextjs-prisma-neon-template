@@ -57,6 +57,7 @@ Next.js + Prisma + Neon starter with a security-first implementation slice of:
 - Permission checks for admin actions via src/lib/auth/permissions.ts.
 - Password hardening with Argon2 + zxcvbn + HIBP k-anonymity checks.
 - TOTP MFA secrets encrypted at rest with step-up challenge tokens for admin actions.
+- Transactional email delivery via Nodemailer SMTP transport.
 
 ## Environment
 
@@ -77,6 +78,14 @@ Optional values:
 - AUTH_PASSWORD_PEPPER
 - MFA_ENCRYPTION_KEY
 - ADMIN_STEP_UP_TTL_SECONDS
+- SMTP_HOST
+- SMTP_PROVIDER
+- SMTP_PORT
+- SMTP_SECURE
+- SMTP_USER
+- SMTP_PASS
+- SMTP_FROM
+- SMTP_FROM_NAME
 - ADMIN_IP_ALLOWLIST
 - LOG_LEVEL
 - ENABLE_HIBP_PASSWORD_CHECK
@@ -86,6 +95,11 @@ Optional values:
 - BOOTSTRAP_SUPER_ADMIN_EMAIL
 - BOOTSTRAP_SUPER_ADMIN_NAME
 - BOOTSTRAP_SUPER_ADMIN_PASSWORD
+
+Email transport behavior:
+
+- Default mode is Gmail when SMTP_PROVIDER is unset (or set to gmail) and SMTP_USER/SMTP_PASS are provided.
+- Custom SMTP mode is enabled by setting SMTP_PROVIDER=smtp and providing SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS.
 
 ## Local Setup
 
