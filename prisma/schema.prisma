@@ -1,14 +1,478 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-    provider = "prisma-client"
-    output   = "../src/lib/generated/prisma"
+  provider = "prisma-client"
+  output   = "../src/lib/generated/prisma"
 }
 
 datasource db {
-    provider = "postgresql"
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum SessionRevokeReason {
+  USER_LOGOUT
+  ADMIN_REVOKED
+  PASSWORD_CHANGED
+  ROLE_CHANGED
+  ACCOUNT_BLOCKED
+  COMPROMISED
+}
+
+enum TokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  MAGIC_LINK
+  STEP_UP
+}
+
+enum PlanInterval {
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  PAUSED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
+
+enum ThemePreference {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum LogSeverity {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+enum LogCategory {
+  AUTH
+  BILLING
+  RBAC
+  ADMIN
+  SYSTEM
+  SECURITY
+}
+
+enum ActorType {
+  USER
+  ADMIN
+  SYSTEM
+  WEBHOOK
+}
+
+enum WebhookProcessStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum AuditActionType {
+  AUTH_EVENT
+  BILLING_EVENT
+  ROLE_CHANGE
+  SETTING_CHANGE
+  ADMIN_ACTION
+}
+
+model User {
+  id                        String     @id @default(cuid())
+  name                      String?
+  email                     String     @unique
+  image                     String?
+  emailVerified             DateTime?
+  passwordHash              String?
+  status                    UserStatus @default(ACTIVE)
+  isBlocked                 Boolean    @default(false)
+  mfaEnabled                Boolean    @default(false)
+  mfaSecretEncrypted        String?    @db.Text
+  mfaPendingSecretEncrypted String?    @db.Text
+  mfaPendingExpiresAt       DateTime?
+  mfaRecoveryCodeHashes     String[]   @default([])
+  mfaEnabledAt              DateTime?
+  mfaLastVerifiedAt         DateTime?
+  authVersion               Int        @default(1)
+  failedLoginAttempts       Int        @default(0)
+  lockedUntil               DateTime?
+  passwordChangedAt         DateTime?
+  lastLoginAt               DateTime?
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+  deletedAt                 DateTime?
+
+  accounts              Account[]
+  sessions              Session[]
+  roles                 UserRole[]
+  rolesAssigned         UserRole[]         @relation("UserRoleAssignedBy")
+  subscriptions         Subscription[]
+  invoices              Invoice[]
+  paymentMethods        PaymentMethod[]
+  settings              UserSettings?
+  notifications         Notification[]
+  adminActivities       AdminActivityLog[] @relation("AdminActor")
+  systemLogs            SystemLog[]        @relation("UserSystemLogs")
+  auditEntries          AuditLog[]         @relation("AuditActor")
+  updatedEmailTemplates EmailTemplate[]    @relation("EmailTemplateUpdatedBy")
+  updatedAppSettings    AppSettings[]      @relation("AppSettingsUpdatedBy")
+  updatedSystemSettings SystemSettings[]   @relation("SystemSettingsUpdatedBy")
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("ProviderAccount")
+}
+
+model Session {
+  id                  String               @id @default(cuid())
+  sessionToken        String               @unique
+  tokenHash           String?              @unique
+  userId              String
+  expires             DateTime
+  authVersionSnapshot Int                  @default(1)
+  ipAddress           String?
+  userAgent           String?
+  lastSeenAt          DateTime?
+  revokedAt           DateTime?
+  revokedReason       SessionRevokeReason?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expires])
+}
+
+model VerificationToken {
+  identifier  String
+  token       String
+  tokenHash   String?   @unique
+  type        TokenType @default(EMAIL_VERIFY)
+  expires     DateTime
+  consumedAt  DateTime?
+  requestedIp String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([identifier, token])
+  @@index([identifier, type])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isImmutable Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  assignedAt   DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model UserRole {
+  userId       String
+  roleId       String
+  assignedById String?
+  assignedAt   DateTime  @default(now())
+  expiresAt    DateTime?
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("UserRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([assignedById])
+}
+
+model Plan {
+  id                String       @id @default(cuid())
+  name              String       @unique
+  price             Decimal      @db.Decimal(10, 2)
+  currency          String       @default("USD")
+  interval          PlanInterval
+  featureList       Json?
+  isActive          Boolean      @default(true)
+  providerProductId String?
+  providerVariantId String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([isActive])
+}
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  userId                 String
+  planId                 String
+  providerSubscriptionId String?            @unique
+  status                 SubscriptionStatus @default(TRIALING)
+  startDate              DateTime           @default(now())
+  endDate                DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
+  gracePeriodEndsAt      DateTime?
+  canceledAt             DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices Invoice[]
+
+  @@index([userId, status])
+  @@index([planId])
+}
+
+model Invoice {
+  id                String        @id @default(cuid())
+  userId            String
+  subscriptionId    String?
+  providerInvoiceId String?       @unique
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("USD")
+  status            InvoiceStatus
+  date              DateTime      @default(now())
+  paidAt            DateTime?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@index([subscriptionId])
+}
+
+model PaymentMethod {
+  id                      String   @id @default(cuid())
+  userId                  String
+  provider                String
+  providerPaymentMethodId String?
+  last4                   String?
+  expiryMonth             Int?
+  expiryYear              Int?
+  fingerprintHash         String?
+  isDefault               Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerPaymentMethodId])
+  @@index([userId, isDefault])
+}
+
+model BillingWebhookEvent {
+  id                String               @id @default(cuid())
+  provider          String
+  externalEventId   String
+  signatureVerified Boolean              @default(false)
+  payloadHash       String
+  payload           Json
+  status            WebhookProcessStatus @default(RECEIVED)
+  error             String?
+  receivedAt        DateTime             @default(now())
+  processedAt       DateTime?
+
+  @@unique([provider, externalEventId])
+  @@index([status, receivedAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  subject     String
+  body        String   @db.Text
+  isActive    Boolean  @default(true)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation("EmailTemplateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+}
+
+model AdminActivityLog {
+  id             String   @id @default(cuid())
+  adminId        String
+  actionType     String
+  targetEntityId String?
+  targetType     String?
+  before         Json?
+  after          Json?
+  requestId      String?
+  ipAddress      String?
+  userAgent      String?
+  timestamp      DateTime @default(now())
+
+  admin User @relation("AdminActor", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, timestamp])
+  @@index([targetType, targetEntityId])
+}
+
+model AuditLog {
+  id             String          @id @default(cuid())
+  actorUserId    String?
+  actionType     AuditActionType
+  action         String
+  targetType     String?
+  targetEntityId String?
+  context        Json?
+  ipAddress      String?
+  userAgent      String?
+  requestId      String?
+  createdAt      DateTime        @default(now())
+
+  actorUser User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actionType, createdAt])
+  @@index([targetType, targetEntityId])
+}
+
+model SystemLog {
+  id             String      @id @default(cuid())
+  userId         String?
+  action         String
+  context        Json?
+  ipAddress      String?
+  severity       LogSeverity @default(INFO)
+  category       LogCategory @default(SYSTEM)
+  actorType      ActorType   @default(SYSTEM)
+  actorId        String?
+  timestamp      DateTime    @default(now())
+  retentionUntil DateTime?
+
+  user User? @relation("UserSystemLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp])
+  @@index([category, severity])
+}
+
+model UserSettings {
+  userId          String          @id
+  themePreference ThemePreference @default(SYSTEM)
+  accentColor     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppSettings {
+  id             String          @id @default(cuid())
+  primaryColor   String?
+  secondaryColor String?
+  defaultTheme   ThemePreference @default(SYSTEM)
+  updatedById    String?
+  updatedAt      DateTime        @updatedAt
+
+  updatedBy User? @relation("AppSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedAt])
+}
+
+model SystemSettings {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  value          String?  @db.Text
+  valueEncrypted String?  @db.Text
+  isSecret       Boolean  @default(false)
+  updatedById    String?
+  updatedAt      DateTime @updatedAt
+
+  updatedBy User? @relation("SystemSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedAt])
 }
